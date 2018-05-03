@@ -53,94 +53,87 @@ namespace Shuqi
                 Console.WriteLine("开始下载...");
                 Thread.Sleep(2000);
 
-                if (Directory.Exists(book.bookName) == false)
-                    Directory.CreateDirectory(book.bookName);
-
+                StreamWriter w = new StreamWriter(book.bookName + ".txt", false, Encoding.UTF8);
                 foreach (var item in book.chapterList)
                 {
+                    Console.WriteLine("{0} : {1}, chapterId : {2}", item.chapterOrdid.PadLeft(5, ' '), item.chapterName, item.chapterId);
+
                     string content = ReadChapterContent(bookid, item);
-                    string filename = item.chapterOrdid.PadLeft(5, '0') + "_" + item.chapterName + ".txt";
-                    File.WriteAllText(Path.Combine(book.bookName, filename), content);
-                    Console.WriteLine("下载完成 : " + filename);
+                    w.WriteLine(item.chapterName);
+                    w.WriteLine();
+                    w.WriteLine(content.Trim());
+                    w.WriteLine();
                 }
+                w.Close();
+
+                Console.WriteLine("全书下载完成,按任意键退出");
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
             }
-            Thread.Sleep(2000);
+            Console.ReadKey(true);
         }
 
         public static BookInfo ReadBookInfo(string bookid)
         {
-            while (true)
+            string userid = "8000000";
+            long timestamp = 1514984538213;
+            string signcontent = string.Concat(bookid, timestamp, userid, "37e81a9d8f02596e1b895d07c171d5c9");
+            MD5 md5 = new MD5CryptoServiceProvider();
+            byte[] output = md5.ComputeHash(Encoding.UTF8.GetBytes(signcontent));
+            string byte2String = null;
+
+            for (int i = 0; i < output.Length; i++)
             {
-                try
+                byte2String += output[i].ToString("x2");
+            }
+
+            byte[] postData = Encoding.UTF8.GetBytes(string.Format("timestamp={0}&user_id={1}&bookId={2}&sign={3}", timestamp, userid, bookid, byte2String));
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://walden1.shuqireader.com/webapi/book/chapterlist");
+            request.Method = "POST";
+            request.ContentType = "application/x-www-form-urlencoded";
+            request.ContentLength = postData.Length;
+            using (Stream requestStream = request.GetRequestStream())
+            {
+                requestStream.Write(postData, 0, postData.Length);
+            }
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
+            string srcString = stream.ReadToEnd();
+            response.Close();
+            stream.Close();
+
+            var content = fastJSON.JSON.Parse(srcString) as Dictionary<string, object>;
+            if (string.Equals(content["state"], "200") == false)
+            {
+                throw new System.Exception(content["message"] as string);
+            }
+
+            var data = content["data"] as Dictionary<string, object>;
+            var datacl = data["chapterList"] as List<object>;
+
+            BookInfo book = new BookInfo();
+            book.bookName = data["bookName"] as string;
+            book.authorName = data["authorName"] as string;
+            book.chapterNum = data["chapterNum"] as string;
+            book.chapterList = new List<ChapterInfo>();
+            foreach (var item in datacl)
+            {
+                var aaa = item as Dictionary<string, object>;
+                var volumeList = aaa["volumeList"] as List<object>;
+                foreach (var volumeRaw in volumeList)
                 {
-                    string userid = "8000000";
-                    long timestamp = 1514984538213;
-                    string signcontent = string.Concat(bookid, timestamp, userid, "37e81a9d8f02596e1b895d07c171d5c9");
-                    MD5 md5 = new MD5CryptoServiceProvider();
-                    byte[] output = md5.ComputeHash(Encoding.UTF8.GetBytes(signcontent));
-                    string byte2String = null;
-
-                    for (int i = 0; i < output.Length; i++)
-                    {
-                        byte2String += output[i].ToString("x2");
-                    }
-
-                    byte[] postData = Encoding.UTF8.GetBytes(string.Format("timestamp={0}&user_id={1}&bookId={2}&sign={3}", timestamp, userid, bookid, byte2String));
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create("http://walden1.shuqireader.com/webapi/book/chapterlist");
-                    request.Method = "POST";
-                    request.ContentType = "application/x-www-form-urlencoded";
-                    request.ContentLength = postData.Length;
-                    using (Stream requestStream = request.GetRequestStream())
-                    {
-                        requestStream.Write(postData, 0, postData.Length);
-                    }
-                    HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-                    StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
-                    string srcString = stream.ReadToEnd();
-                    response.Close();
-                    stream.Close();
-
-                    var content = fastJSON.JSON.Parse(srcString) as Dictionary<string, object>;
-                    if (string.Equals(content["state"], "200") == false)
-                    {
-                        Console.WriteLine(content["message"]);
-                        return null;
-                    }
-
-                    var data = content["data"] as Dictionary<string, object>;
-                    var datacl = data["chapterList"] as List<object>;
-
-                    BookInfo book = new BookInfo();
-                    book.bookName = data["bookName"] as string;
-                    book.authorName = data["authorName"] as string;
-                    book.chapterNum = data["chapterNum"] as string;
-                    book.chapterList = new List<ChapterInfo>();
-                    foreach (var item in datacl)
-                    {
-                        var aaa = item as Dictionary<string, object>;
-                        var volumeList = aaa["volumeList"] as List<object>;
-                        foreach (var volumeRaw in volumeList)
-                        {
-                            var volume = volumeRaw as Dictionary<string, object>;
-                            ChapterInfo info = new ChapterInfo();
-                            info.chapterId = volume["chapterId"] as string;
-                            info.chapterName = volume["chapterName"] as string;
-                            info.chapterOrdid = volume["chapterOrdid"] as string;
-                            book.chapterList.Add(info);
-                        }
-                    }
-
-                    return book;
-                }
-                catch (Exception)
-                {
-                    Console.WriteLine("读取信息失败");
+                    var volume = volumeRaw as Dictionary<string, object>;
+                    ChapterInfo info = new ChapterInfo();
+                    info.chapterId = volume["chapterId"] as string;
+                    info.chapterName = volume["chapterName"] as string;
+                    info.chapterOrdid = volume["chapterOrdid"] as string;
+                    book.chapterList.Add(info);
                 }
             }
+
+            return book;
         }
 
         public static string ReadChapterContent(string bookid, ChapterInfo chapter)
@@ -149,7 +142,7 @@ namespace Shuqi
             {
                 try
                 {
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(string.Format("http://c1.shuqireader.com/httpserver/filecache/get_book_content_{0}_{1}.xml", bookid, chapter.chapterId));
+                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(string.Format("http://c1.shuqireader.com/httpserver/filecache/get_book_content_{0}_{1}_1463557822_1_0.xml", bookid, chapter.chapterId));
                     request.Method = "GET";
                     HttpWebResponse response = (HttpWebResponse)request.GetResponse();
                     StreamReader stream = new StreamReader(response.GetResponseStream(), Encoding.UTF8);
@@ -172,9 +165,15 @@ namespace Shuqi
             }
         }
 
+        /// <summary>
+        /// uc.apk
+        ///     novel.jar
+        /// </summary>
+        /// <param name="code"></param>
+        /// <returns></returns>
         public static string DecodeChapterContent(string code)
         {
-            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(code);
+            byte[] bytes = Encoding.UTF8.GetBytes(code);
             for (int i = 0; i < bytes.Length; i++)
             {
                 byte charAt = bytes[i];
@@ -196,9 +195,9 @@ namespace Shuqi
                 }
                 bytes[i] = charAt;
             }
-            code = System.Text.Encoding.UTF8.GetString(bytes);
+            code = Encoding.UTF8.GetString(bytes);
             byte[] bbb = Convert.FromBase64String(code);
-            return System.Text.Encoding.UTF8.GetString(bbb);
+            return Encoding.UTF8.GetString(bbb);
         }
     }
 }
