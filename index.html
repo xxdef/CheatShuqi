@@ -334,10 +334,10 @@
     }
 
     function get_book_content(bookId, chapterId) {
-        $.get('//c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
+        $.get('https://c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
             var ciphertext = data.lastChild.textContent;
             var aaaa = decode_chapter_content(ciphertext);
-            alert(aaaa);
+            alert(aaaa.replace(/<br\/>/g,'\n'));
         })
     }
 
@@ -349,7 +349,7 @@
 
         postdata.sign = $.md5(postdata.bookId + postdata.timestamp + postdata.user_id + "37e81a9d8f02596e1b895d07c171d5c9");
 
-        $.post("//walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
+        $.post("https://walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
             var dt = new Date(Number(data.data.lastInsTime + '000')),
             y = dt.getFullYear(),
             m = dt.getMonth() + 1,
