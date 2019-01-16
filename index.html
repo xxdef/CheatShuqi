@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <script src="https://code.jquery.com/jquery-3.3.1.min.js"/>
 
 <script>
@@ -333,14 +334,27 @@
         return b.decode(bytes);
     }
 
-    function get_book_content(bookId, chapterId) {
-        $.get('https://c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
+    function get_book_content(bookId, chapterId, chapterOrdid) {
+        $.get('http://c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
             var ciphertext = data.lastChild.textContent;
             var aaaa = decode_chapter_content(ciphertext);
-            alert(aaaa.replace(/<br\/>/g,'\n'));
+            //alert(chapLog[chapterOrdid].id);
+			
+			var forntid = chapterOrdid - 1;
+			var afterid = chapterOrdid + 1;
+			if(forntid == 0) forntid = 1;
+			if(afterid > chapLog.length) afterid = chapLog.length;
+			
+			document.close();
+			document.write('<h4>&nbsp;&nbsp;&nbsp;&nbsp;'+chapLog[chapterOrdid].name+'</h4><br/>'+aaaa+'<br/>&nbsp;&nbsp;<a href="javascript:get_book_content('+bookId+','+chapLog[forntid].id+','+forntid+
+						   ');scroll(0,0);">上一章</a>&nbsp;&nbsp;<a>目录</a>&nbsp;&nbsp;<a href="javascript:get_book_content('+bookId+','+chapLog[afterid].id+','+afterid+');scroll(0,0);">下一章</a>');
+
         })
     }
-
+	
+	var chapLog = {};
+	
+	
     $("#sq_btn").click(function(){
         var postdata = {};
         postdata.timestamp = '1547000000000';
@@ -349,7 +363,7 @@
 
         postdata.sign = $.md5(postdata.bookId + postdata.timestamp + postdata.user_id + "37e81a9d8f02596e1b895d07c171d5c9");
 
-        $.post("https://walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
+        $.post("http://walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
             var dt = new Date(Number(data.data.lastInsTime + '000')),
             y = dt.getFullYear(),
             m = dt.getMonth() + 1,
@@ -367,23 +381,19 @@
             {
                 var volume = data.data.chapterList[k1];
                 for (var k2 in volume.volumeList)
-                {
-                    var chapter = volume.volumeList[k2];
-                    // var volume = volumeRaw as Dictionary<string, object>;
-                    // ChapterInfo info = new ChapterInfo();
-                    // info.chapterId = volume["chapterId"] as string;
-                    // info.chapterName = volume["chapterName"] as string;
-                    // info.chapterOrdid = volume["chapterOrdid"] as string;
-                    // book.chapterList.Add(info);
-                    document.write((chapter.isFreeRead ? '免费' : '收费') + '&nbsp;&nbsp;' + '<a id=\''+chapter.chapterId+'\' href="javascript:get_book_content('+postdata.bookId+','+chapter.chapterId+');"">' + chapter.chapterName + '</a><br/>');
+                {		
+					var chapter = volume.volumeList[k2];
+					var info = {};
+					info.name = chapter.chapterName;
+					info.id = chapter.chapterId;
+					//alert(info.name);
+					chapLog[chapter.chapterOrdid]=info;
+				
+                    document.write((chapter.isFreeRead ? '免费' : '收费') + '&nbsp;&nbsp;' + '<a id=\''+chapter.chapterId+'\' href="javascript:get_book_content('+postdata.bookId+','+chapter.chapterId+','+chapter.chapterOrdid+');"">' + chapter.chapterName + '</a><br/>');
                 }
             }
 
         });
-    });
-
-    $("#qd_btn").click(function(){
-        alert('暂不支持');
     });
 
 </script>
