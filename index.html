@@ -1,20 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<script src="https://code.jquery.com/jquery-3.3.1.min.js"/>
-
-<script>
-</script>
+	<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+	<script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+	<style> 
+        .black_overlay{ 
+            display: none; 
+            position: absolute; 
+            top: 0%; 
+            left: 0%; 
+            width: 100%; 
+            height: 100%; 
+            background-color: black; 
+            z-index:1001; 
+            -moz-opacity: 0.8; 
+            opacity:.80; 
+            filter: alpha(opacity=88); 
+        } 
+        .white_content { 
+            display: none; 
+            position: absolute; 
+			top: 5%; 
+			buttom: 5%;
+            left: 5%; 
+			right: 5%; 
+			height: 75%;
+            padding: 20px;
+			border-radius:10px;
+            background-color: white; 
+            z-index:1002; 
+            overflow: auto; 
+        } 
+    </style> 
 </head>
 <body>
-<input type="text" id="sq_id" placeholder="书旗小说ID" value="5810249">
-<button id='sq_btn'>看书</button>
-<br/>
-<input type="text" id="qd_id" placeholder="起点小说ID">
-<button id='qd_btn'>看书</button>
-<br/>
-
+	<div id="find">
+	    <input type="text" id="sq_id" placeholder="书旗小说ID" value="5810249">
+	    <button id='sq_btn'>看书</button>
+	    <br/>
+	    <input type="text" id="qd_id" placeholder="起点小说ID">
+	    <button id='qd_btn'>看书</button>
+	    <br/>
+	</div>
+	<div id="showContent"></div>
+	
+	<div id="light" class="white_content"></div> 
+    <div id="fade" class="black_overlay" onclick = "document.getElementById('light').style.display='none';document.getElementById('fade').style.display='none'"></div>
+	
 <script type="text/javascript">
     (function($){
         var rotateLeft = function(lValue, iShiftBits) {
@@ -304,8 +336,7 @@
         }
     }
 
-    function decode_chapter_content(code)
-    {
+    function decode_chapter_content(code) {
         var bytes= new Uint8Array(4);
         var bytes = '';
         for (var i = 0; i < code.length; i++)
@@ -327,7 +358,7 @@
                     charAt = (((charAt % 122) + 97) - 1);
                 }
             }
-            bytes += String.fromCharCode(charAt)
+            bytes += String.fromCharCode(charAt) 
         }
         var b = new Base64();
 
@@ -335,27 +366,36 @@
     }
 
     function get_book_content(bookId, chapterId, chapterOrdid) {
-        $.get('https://c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
+        $.get('http://c1.shuqireader.com/httpserver/filecache/get_book_content_'+bookId+'_'+chapterId+'_1463557822_1_0.xml', function(data,status){
             var ciphertext = data.lastChild.textContent;
             var aaaa = decode_chapter_content(ciphertext);
-            //alert(chapLog[chapterOrdid].id);
-
+			
 			var forntid = chapterOrdid - 1;
 			var afterid = chapterOrdid + 1;
 			if(forntid == 0) forntid = 1;
 			if(afterid > chapLog.length) afterid = chapLog.length;
-
-			document.close();
-			document.write('<h4>&nbsp;&nbsp;&nbsp;&nbsp;'+chapLog[chapterOrdid].name+'</h4><br/>'+aaaa+'<br/>&nbsp;&nbsp;<a href="javascript:get_book_content('+bookId+','+chapLog[forntid].id+','+forntid+
-						   ');scroll(0,0);">上一章</a>&nbsp;&nbsp;<a>目录</a>&nbsp;&nbsp;<a href="javascript:get_book_content('+bookId+','+chapLog[afterid].id+','+afterid+');scroll(0,0);">下一章</a>');
+						
+			Cont.innerHTML = '<h3 style="text-align:center;">'+chapLog[chapterOrdid].chapterName+'</h3><br/>'+aaaa+'<br/>'+
+						   '<p style="width:100%; text-align:center;" ><a href="javascript:get_book_content('+bookId+','+chapLog[forntid].chapterId+','+forntid+');">上一章</a>&nbsp;&nbsp;'+
+						   '<a href="javascript:void(0);" onclick = "document.getElementById(\'light\').style.display=\'block\';document.getElementById(\'fade\').style.display=\'block\'">目录</a>&nbsp;&nbsp;'+
+						   '<a href="javascript:get_book_content('+bookId+','+chapLog[afterid].chapterId+','+afterid+');">下一章</a></p>';
+			scroll(0,0);	// 回到页面顶部
 
         })
     }
-
-	var chapLog = {};
-
-
-    $("#sq_btn").click(function(){
+	
+	function show_chapLog() {
+		fade.style.display='block';
+		light.style.display='block';
+	}
+	
+	
+	var chapLog = {};	// 储存所有章节信息
+	var Cont = document.getElementById("showContent");
+	var light = document.getElementById('light');
+	var fade = document.getElementById('fade');
+	
+    $("#sq_btn").click(function() {		
         var postdata = {};
         postdata.timestamp = '1547000000000';
         postdata.user_id = '8000000';
@@ -363,40 +403,38 @@
 
         postdata.sign = $.md5(postdata.bookId + postdata.timestamp + postdata.user_id + "37e81a9d8f02596e1b895d07c171d5c9");
 
-        $.post("https://walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
+        $.post("http://walden1.shuqireader.com/webapi/book/chapterlist", postdata, function(data,status){
             var dt = new Date(Number(data.data.lastInsTime + '000')),
             y = dt.getFullYear(),
             m = dt.getMonth() + 1,
             d = dt.getDate();
             var time = y + "-" + (m < 10 ? "0" + m : m) + "-" + (d < 10 ? "0" + d : d) + " " + dt.toTimeString().substr(0, 8);
-
-            alert('书名：' + data.data.bookName + "\n"
-                + '作者：' + data.data.authorName + "\n"
-                + '字数：' + data.data.wordCount + "万字\n"
-                + "章节数：" + data.data.chapterNum + "\n"
-                + "最后更新：" + time + "\n"
-                + "状态：" + (data.data.state == "1" ? "连载中" : "完结"));
-
-            for (var k1 in data.data.chapterList)
+						
+			var str = "";
+			
+			for (var k1 in data.data.chapterList)
             {
                 var volume = data.data.chapterList[k1];
                 for (var k2 in volume.volumeList)
-                {
+                {		
 					var chapter = volume.volumeList[k2];
-					var info = {};
-					info.name = chapter.chapterName;
-					info.id = chapter.chapterId;
-					//alert(info.name);
-					chapLog[chapter.chapterOrdid]=info;
-
-                    document.write((chapter.isFreeRead ? '免费' : '收费') + '&nbsp;&nbsp;' + '<a id=\''+chapter.chapterId+'\' href="javascript:get_book_content('+postdata.bookId+','+chapter.chapterId+','+chapter.chapterOrdid+');"">' + chapter.chapterName + '</a><br/>');
+					chapLog[chapter.chapterOrdid]=chapter;
+				
+                    str += ((chapter.isFreeRead ? '免费' : '收费') + '&nbsp;&nbsp;' + '<a id=\''+chapter.chapterId+'\' href="javascript:get_book_content('+postdata.bookId+','+chapter.chapterId+','+chapter.chapterOrdid+');"">' + chapter.chapterName + '</a><br/>');
                 }
             }
-
+			document.getElementById('find').style.display='none';
+			Cont.innerHTML = '<div style="left:1%;right:1%;border:1px dashed #000;padding-left:10px;"><p>'+
+						     '书名：' + data.data.bookName + '<br/>' +
+						     '作者：' + data.data.authorName + '<br/>' +
+						     '字数：' + data.data.wordCount + '万字<br/>' +
+						     '章节数：' + data.data.chapterNum + '<br/>' +
+						     '最后更新：' + time + '<br/>' +
+						     '状态：' + (data.data.state == "1" ? "连载中" : "完结") +
+						     '</p></div><br/>' + str;
+			light.innerHTML = str;
+			
         });
-    });
-    $("#qd_btn").click(function(){
-        alert('暂不支持')
     });
 
 </script>
